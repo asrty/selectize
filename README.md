@@ -1,9 +1,9 @@
 # New Selectize Plugin Update for Saltcorn
-This update introduces enhanced functionality to the Selectize plugin in Saltcorn, focusing on customizable AJAX responses and optimized data fetching. It allows users to format dropdown labels dynamically (e.g., combining fields like name and CNPJ) and limit fetched columns for better performance, without altering the database. The backend modifications ensure the API supports these features securely.
+This update introduces enhanced functionality to the Selectize plugin in Saltcorn, focusing on customizable AJAX responses and optimized data fetching. It allows users to format dropdown labels dynamically (e.g., combining fields like name and RG) and limit fetched columns for better performance, without altering the database. The backend modifications ensure the API supports these features securely.
 
 ## Key Changes
 
-- **✅AJAX Response Formatting:** Customize how options appear in the dropdown using placeholders like {nome} - {cnpj}.
+- **✅AJAX Response Formatting:** Customize how options appear in the dropdown using placeholders like {nome} - {rg}.
 - **✅Column Limiting:** Specify fields to fetch (e.g., "id,name,rg") to reduce data transfer.
 - **❌Multiple search support:** Search across multiple fields (e.g., partial matches on name, RG, id) for more flexible queries.
 - **❌No bug fixes:** Unresolved syntax issues, dynamic "where" filtering, and bidirectional autofill (not implemented).

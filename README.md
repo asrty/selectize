@@ -3,10 +3,10 @@ This update introduces enhanced functionality to the Selectize plugin in Saltcor
 
 ## Key Changes
 
-- **AJAX Response Formatting:** Customize how options appear in the dropdown using placeholders like {nome} - {cnpj}.
-- **Column Limiting:** Specify fields to fetch (e.g., "id,nome,cnpj") to reduce data transfer.
-- **Multisearch Support:** Search across multiple fields (e.g., partial matches in name or CNPJ) for more flexible queries.
-- **Bug Fixes:** Resolved syntax issues, dynamic "where" filtering, and bidirectional autofill (removed in favor of formatting).
+- **✅AJAX Response Formatting:** Customize how options appear in the dropdown using placeholders like {nome} - {cnpj}.
+- **✅Column Limiting:** Specify fields to fetch (e.g., "id,name,rg") to reduce data transfer.
+- **❌Multiple search support:** Search across multiple fields (e.g., partial matches on name, RG, id) for more flexible queries.
+- **❌No bug fixes:** Unresolved syntax issues, dynamic "where" filtering, and bidirectional autofill (not implemented).
 
 These improvements make Selectize more efficient for large datasets and complex forms, with no breaking changes to existing setups.
 
@@ -22,13 +22,11 @@ For full details on backend integration, see the README file content below.
 This survey provides an in-depth overview of the Selectize plugin update for Saltcorn, including rationale, code changes, backend modifications, testing guidelines, and potential extensions. The update addresses user feedback on AJAX customization, performance optimization, and search flexibility, making it a significant enhancement for form-based applications. It removes deprecated autofill features in favor of response formatting, aligning with modern UX patterns in dropdowns.
 
 ## Update Rationale and Features
-The original Selectize plugin limited AJAX responses to a single summary field, leading to issues like incomplete data display or inefficient fetches. This version introduces dynamic formatting (e.g., {nome} - {cnpj}) using string replacement in JavaScript, allowing rich labels without DB changes. Column limiting reduces payload size, crucial for mobile or high-latency environments. Multisearch enables OR-based filtering across fields, solving the "search by name but param is cnpj" problem by dynamically building queries.
+The original Selectize plugin limited AJAX responses to a single summary field, leading to issues like incomplete data display or inefficient fetches. This version introduces dynamic formatting (e.g., {name} - {rg}) using string replacement in JavaScript, allowing rich labels without DB changes. Column limiting reduces payload size, crucial for mobile or high-latency environments. Multisearch enables OR-based filtering across fields, solving the "search by name but param is cnpj" problem by dynamically building queries.
 Key enhancements:
 
 - **Response Formatting:** Uses regex replacement for placeholders, supporting any fetched column.
 - **Column Fetching:** Integrates with backend colunas param for selective SELECT.
-- **Multisearch:** Backend OR clauses for partial matches, with frontend param passing.
-- I was unable to implement autocomplete (autofill) because there were several bugs.
 
 These changes improve usability without requiring schema modifications, though for very large tables, consider indexing search fields.
 

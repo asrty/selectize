@@ -539,13 +539,6 @@ module.exports = {
     {
       script: `${base_headers}/selectize.min.js`,
     },
-    {
-      script: `/plugins/public/selectize${
-        features?.version_plugin_serve_path
-          ? "@" + require("./package.json").version
-          : ""
-      }/selectize_everything.js`,
-    },
     ...(default_locale && default_locale !== "en"
       ? [
           {

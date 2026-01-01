@@ -234,11 +234,10 @@ const selectize = {
                   attrs?.ajax
                     ? `load: async function(query, callback) {
     if (!query.length || query.length<2) return callback();
+    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
       if (isWeb) {
       $.ajax({
-        url: '/api/${field.reftable_name}?${
-                        field.attributes.summary_field
-                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
+        url: url,
         type: 'GET',
         dataType: 'json',
         error: function(err) { console.log(err); },
@@ -305,6 +304,28 @@ const selectize = {
     );
   },
 };
+
+const configuration_workflow = () =>
+  new Workflow({
+    steps: [
+      {
+        name: "everything",
+        form: async (context) => {
+          return new Form({
+            fields: [
+              {
+                name: "everything",
+                label: "Selectize everything",
+                sublabel: "Apply selectize everywhere possible",
+                type: "Bool",
+              },
+            ],
+          });
+        },
+      },
+    ],
+  });
+
 
 const search_or_create_selectize = {
   /** @type {string} */
@@ -489,7 +510,9 @@ $('#input${nm}').selectize({
 document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
 window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+  const url = '/api/${field.reftable_name}?${
+      field.attributes.summary_field
+    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
   $.ajax(url, {
     success: function (res, textStatus, request) {
       const dataOptions = [];
@@ -531,13 +554,21 @@ const default_locale = getState().getConfig("default_locale", "en");
 module.exports = {
   sc_plugin_api_version: 1,
   fieldviews,
+  configuration_workflow,
   plugin_name: "selectize",
   //viewtemplates: [require("./edit-nton")],
-  headers: [
+  headers: ({ everything }) =>  [
     {
       script: `${base_headers}/selectize.min.js`,
     },
-    ...(default_locale && default_locale !== "en"
+    {
+      script: `/plugins/public/selectize${
+        features?.version_plugin_serve_path
+          ? "@" + require("./package.json").version
+          : ""
+      }/selectize_everything.js`,
+    },
+    ...(everything && default_locale && default_locale !== "en"
       ? [
           {
             script: `${base_headers}/i18n/${default_locale}.js`,

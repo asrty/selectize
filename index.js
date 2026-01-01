@@ -237,7 +237,7 @@ const selectize = {
     const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
     if (isWeb) {
       $.ajax({
-        url: url,s
+        url: url,
         type: 'GET',
         dataType: 'json',
         error: function(err) { console.log(err); },

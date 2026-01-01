@@ -305,27 +305,6 @@ const selectize = {
   },
 };
 
-const configuration_workflow = () =>
-  new Workflow({
-    steps: [
-      {
-        name: "everything",
-        form: async (context) => {
-          return new Form({
-            fields: [
-              {
-                name: "everything",
-                label: "Selectize everything",
-                sublabel: "Apply selectize everywhere possible",
-                type: "Bool",
-              },
-            ],
-          });
-        },
-      },
-    ],
-  });
-
 
 const search_or_create_selectize = {
   /** @type {string} */
@@ -554,7 +533,6 @@ const default_locale = getState().getConfig("default_locale", "en");
 module.exports = {
   sc_plugin_api_version: 1,
   fieldviews,
-  configuration_workflow,
   plugin_name: "selectize",
   //viewtemplates: [require("./edit-nton")],
   headers: ({ everything }) =>  [

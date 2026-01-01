@@ -63,7 +63,7 @@ const selectize = {
       name: "ajax_response_format",
       label: "AJAX response format",
       type: "String",
-      sublabel: "Formate o label visual do dropdown. Ex.: {nome} - {cnpj}"
+      sublabel: "Formate o label visual do dropdown. Ex.: {nome} - {cnpj}",
     },
     {
       name: "ajax",
@@ -103,7 +103,7 @@ const selectize = {
       name: "columns_to_fetch",
       label: "Columns to fetch",
       type: "String",
-      sublabel: "Escreva os nomes das colunas que precisam ser retornadas. Ex.: id, name, email"
+      sublabel: "Escreva os nomes das colunas que precisam ser retornadas. Ex.: id, name, email",
     },
   ],
 
@@ -234,10 +234,11 @@ const selectize = {
                   attrs?.ajax
                     ? `load: async function(query, callback) {
     if (!query.length || query.length<2) return callback();
-    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-    if (isWeb) {
+      if (isWeb) {
       $.ajax({
-        url: url,
+        url: '/api/${field.reftable_name}?${
+                        field.attributes.summary_field
+                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
         type: 'GET',
         dataType: 'json',
         error: function(err) { console.log(err); },
@@ -431,7 +432,9 @@ $('#input${nm}').selectize({
   language: "${default_locale}",
   load: async function(query, callback) {
     if (!query.length || query.length < 2) return callback();
-    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+    const url = '/api/${field.reftable_name}?${
+      field.attributes.summary_field
+    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
     if (isWeb) {
       $.ajax({
         url: url,

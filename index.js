@@ -234,10 +234,10 @@ const selectize = {
                   attrs?.ajax
                     ? `load: async function(query, callback) {
     if (!query.length || query.length<2) return callback();
-    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
+    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
     if (isWeb) {
       $.ajax({
-        url: url,
+        url: url,s
         type: 'GET',
         dataType: 'json',
         error: function(err) { console.log(err); },
@@ -431,7 +431,7 @@ $('#input${nm}').selectize({
   language: "${default_locale}",
   load: async function(query, callback) {
     if (!query.length || query.length < 2) return callback();
-    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
+    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
     if (isWeb) {
       $.ajax({
         url: url,
@@ -486,7 +486,7 @@ $('#input${nm}').selectize({
 document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
 window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
+  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
   $.ajax(url, {
     success: function (res, textStatus, request) {
       const dataOptions = [];

@@ -1,13 +1,13 @@
 {
   "name": "@saltcorn/selectize",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "Typeahead fieldviews based on seletize.js",
   "main": "index.js",
   "dependencies": {
     "@saltcorn/data": "^0.6.0",
     "@saltcorn/markup": "^0.6.0"
   },
-  "author": "Tom Nielsen",
+  "author": "Tom Nielsen & Asrty",
   "license": "MIT",
   "eslintConfig": {
     "extends": "eslint:recommended",

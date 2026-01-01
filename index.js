@@ -38,7 +38,7 @@ const selectize = {
 
    /**
    * @type {object[]}
-   */
+   */  
   fill_options_restrict(field, v) {
     if (field?.attributes?.ajax) {
       const pk = Table.findOne(field.reftable_name)?.pk_name;
@@ -234,11 +234,10 @@ const selectize = {
                   attrs?.ajax
                     ? `load: async function(query, callback) {
     if (!query.length || query.length<2) return callback();
-      if (isWeb) {
+    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
+    if (isWeb) {
       $.ajax({
-        url: '/api/${field.reftable_name}?${
-                        field.attributes.summary_field
-                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
+        url: url,
         type: 'GET',
         dataType: 'json',
         error: function(err) { console.log(err); },
@@ -357,14 +356,12 @@ const search_or_create_selectize = {
         {
           class: `form-control form-select ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
-
           name: text_attr(nm0),
           id: `input${nm}`,
           disabled: attrs.disabled,
           readonly: attrs.readonly,
           onChange: attrs.onChange,
           autocomplete: "off",
-
           ...(attrs?.dynamic_where
             ? {
                 "data-selected": v,
@@ -434,9 +431,7 @@ $('#input${nm}').selectize({
   language: "${default_locale}",
   load: async function(query, callback) {
     if (!query.length || query.length < 2) return callback();
-    const url = '/api/${field.reftable_name}?${
-      field.attributes.summary_field
-    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
     if (isWeb) {
       $.ajax({
         url: url,
@@ -491,7 +486,7 @@ $('#input${nm}').selectize({
 document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
 window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+  const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ) + ( "${attrs.where ? '&where=' + encodeURIComponent(attrs.where) : ''}" );
   $.ajax(url, {
     success: function (res, textStatus, request) {
       const dataOptions = [];

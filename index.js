@@ -305,7 +305,6 @@ const selectize = {
   },
 };
 
-
 const search_or_create_selectize = {
   /** @type {string} */
   type: "Key",
@@ -489,9 +488,7 @@ $('#input${nm}').selectize({
 document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
 window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}?${
-      field.attributes.summary_field
-    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
   $.ajax(url, {
     success: function (res, textStatus, request) {
       const dataOptions = [];

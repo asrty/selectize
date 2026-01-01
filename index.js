@@ -17,6 +17,7 @@ const Table = require("@saltcorn/data/models/table");
 const View = require("@saltcorn/data/models/view");
 const Form = require("@saltcorn/data/models/form");
 
+// Constante para obter cor de fundo do tema dark
 const bsBgColor = () => {
   const state = getState();
   if (state.plugin_cfgs) {
@@ -29,22 +30,121 @@ const bsBgColor = () => {
   return "";
 };
 
+// Função reutilizável para gerar estilos dark mode
+const generateDarkModeStyles = () => {
+  return `
+    const addFiveToColor = (hexColor) => {
+      const decimalColor = parseInt(hexColor.replace("#", ""), 16);
+      let red = (decimalColor >> 16) & 0xff;
+      let green = (decimalColor >> 8) & 0xff;
+      let blue = decimalColor & 0xff;
+      red = Math.min(255, red + 5);
+      green = Math.min(255, green + 5);
+      blue = Math.min(255, blue + 5);
+      return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
+    }
+
+    const getDarkStyle = (bg) => {
+      return \`
+        .selectize-input, .selectize-control, .selectize-dropdown {
+          background-color: \${bg} !important;
+          color: #fff !important;
+        }
+        .selectize-dropdown-content .option.active {
+          background-color: \${addFiveToColor(bg)} !important;
+          color: #fff !important;
+        }
+      \`;
+    }
+
+    const darkBg = window._sc_lightmode === "dark" ? 
+      (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || 
+        "${bsBgColor()}") : null;
+    
+    if (darkBg) {
+      const style = document.createElement('style');
+      style.textContent = getDarkStyle(darkBg);
+      document.head.appendChild(style);
+    }
+  `;
+};
+
+// Função para formatar labels no AJAX com template
+const generateFormatLabelFunction = (attrs, field) => {
+  return `
+    const formatLabel = (item) => {
+      let format = "${attrs.ajax_response_format || ''}";
+      if (!format) return item.${field.attributes.summary_field};
+      return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
+    };
+  `;
+};
+
+// Configuração AJAX reutilizável para load do selectize
+const generateAjaxLoadConfig = (field, attrs) => {
+  const columnsParam = attrs.columns_to_fetch 
+    ? `&colunas=${encodeURIComponent(attrs.columns_to_fetch)}` 
+    : '';
+  
+  return `
+    load: async function(query, callback) {
+      if (!query.length || query.length < 2) return callback();
+      const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true${columnsParam}';
+      const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
+      const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
+      
+      ${generateFormatLabelFunction(attrs, field)}
+      
+      if (isWeb) {
+        $.ajax({
+          url: url,
+          type: 'GET',
+          dataType: 'json',
+          error: function(err) { console.log(err); callback(); },
+          success: function(data) {
+            if (!data || !data.success) return callback([]);
+            const options = data.success.map(item => ({
+              text: formatLabel(item),
+              value: item.id,
+              ...item
+            }));
+            callback(options);
+          }
+        });
+      } else if (hasCapacitor) {
+        const response = await parent.window.saltcorn.mobileApp.api.apiCall({
+          method: 'GET',
+          path: url,
+          responseType: "json"
+        });
+        const data = response.data;
+        if (!data || !data.success) return callback([]);
+        const options = data.success.map(item => ({
+          text: formatLabel(item),
+          value: item.id,
+          ...item
+        }));
+        callback(options);
+      } else {
+        console.error("No API available");
+        callback();
+      }
+    },
+  `;
+};
+
 const selectize = {
-    /** @type {string} */
   type: "Key",
-    /** @type {boolean} */
   isEdit: true,
   blockDisplay: true,
 
-   /**
-   * @type {object[]}
-   */  
   fill_options_restrict(field, v) {
     if (field?.attributes?.ajax) {
       const pk = Table.findOne(field.reftable_name)?.pk_name;
       if (pk) return { [pk]: v || null };
     }
   },
+
   configFields: () => [
     {
       name: "neutral_label",
@@ -56,9 +156,6 @@ const selectize = {
       label: "Where",
       type: "String",
     },
-    // Novo campo: AJAX response format (substitui o autofill)
-    // Formato: {coluna} para valores dinâmicos, strings literais para texto fixo
-    // Exemplo: {nome} - {cnpj}
     {
       name: "ajax_response_format",
       label: "AJAX response format",
@@ -98,7 +195,6 @@ const selectize = {
       class: "validate-expression",
       sublabel: "Uses summary field if blank",
     },
-    // Novo campo: Columns to fetch
     {
       name: "columns_to_fetch",
       label: "Columns to fetch",
@@ -107,18 +203,9 @@ const selectize = {
     },
   ],
 
-  /**
-   * @param {*} nm
-   * @param {*} v
-   * @param {*} attrs
-   * @param {*} cls
-   * @param {*} reqd
-   * @param {*} field
-   * @returns {object}
-   */
-
   run: (nm, v, attrs, cls, reqd, field) => {
-    if (attrs.disabled)
+    // Se o campo está desabilitado, retorna input readonly
+    if (attrs.disabled) {
       return (
         input({
           class: `${cls} ${field.class || ""}`,
@@ -129,16 +216,18 @@ const selectize = {
           placeholder: v || field.label,
         }) + span({ class: "ml-m1" }, "v")
       );
-    //console.log("select2 attrs", attrs);
+    }
+
+    // Gera as opções do select
     let opts = [];
-    if (!attrs.ajax)
+    if (!attrs.ajax) {
       opts = select_options(
         v,
         field,
         (attrs || {}).force_required,
         (attrs || {}).neutral_label
       );
-    else
+    } else {
       opts = select_options(
         v,
         {
@@ -150,11 +239,15 @@ const selectize = {
         (attrs || {}).force_required,
         (attrs || {}).neutral_label
       );
-    if (attrs.isFilter && field.required)
-      opts = `
+    }
 
-` + opts;
+    // Adiciona opção vazia para filtros com campo required
+    if (attrs.isFilter && field.required) {
+      opts = `<option value=""></option>` + opts;
+    }
+
     const noChange = attrs.isFilter && attrs.dynamic_where;
+
     return (
       tags.select(
         {
@@ -179,145 +272,43 @@ const selectize = {
       script(
         domReady(
           `
-      const addFiveToColor = (hexColor) => {
-      const decimalColor = parseInt(hexColor.replace("#", ""), 16);
-      let red = (decimalColor >> 16) & 0xff;
-      let green = (decimalColor >> 8) & 0xff;
-      let blue = decimalColor & 0xff;
-      red = Math.min(255, red + 5);
-      green = Math.min(255, green + 5);
-      blue = Math.min(255, blue + 5);
-      return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
-    }
-
-    const getDarkStyle = (bg) => {
-      return \`
-      .selectize-input {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-
-      .selectize-control {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-
-      .selectize-dropdown  {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-      .selectize-dropdown-content .option.active {
-        background-color: \${addFiveToColor(bg)} !important;
-        color: #fff !important;
-      }
-    \`;
-    };
-
-    // try tabler, then bootstrap, then default
-    const darkBg = window._sc_lightmode==="dark" ? 
-      (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || 
-        "${bsBgColor()}") : null; 
-    if (darkBg) {
-      const style = document.createElement('style');
-      style.textContent = getDarkStyle(darkBg);
-      document.head.appendChild(style);
-    }
-    const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
-    const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
-    $('#input${text_attr(nm)}').selectize({
-                ${
-                  attrs?.isFilter || field.required
-                    ? `plugins: ["remove_button"],`
-                    : ""
-                }
-                ${
-                  attrs?.ajax
-                    ? `load: async function(query, callback) {
-    if (!query.length || query.length<2) return callback();
-    const url = '/api/${field.reftable_name}?${field.attributes.summary_field}='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-      if (isWeb) {
-      $.ajax({
-        url: url,
-        type: 'GET',
-        dataType: 'json',
-        error: function(err) { console.log(err); },
-
-      success: function(data) {
-        if(!data || !data.success) return [];
-        const formatLabel = (item) => {
-          let format = "${attrs.ajax_response_format || ''}";
-          if (!format) return item.${field.attributes.summary_field};
-          return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-        };
-        const options = data.success.map(item => ({ text: formatLabel(item), value: item.id, ...item }));
-        callback(options);
-        }
-                  })
-        }
-        else if (hasCapacitor) {
-          const response = await parent.window.saltcorn.mobileApp.api.apiCall({
-            method: 'GET',
-            path: '/api/${field.reftable_name}?${
-                        field.attributes.summary_field
-                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
-            responseType: "json",
-          });
-          const data = response.data;
-          if(!data || !data.success) callback([]);
-          else {
-            const formatLabel = (item) => {
-              let format = "${attrs.ajax_response_format || ''}";
-              if (!format) return item.${field.attributes.summary_field};
-              return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-            };
-            const options = data.success.map(item => ({ text: formatLabel(item), value: item.id, ...item }));
-            callback(options);
-          }
-        }
-        else {
-          console.error("No API available")
-        }
-                },`
-                    : ""
-                }
+            ${generateDarkModeStyles()}
+            
+            const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
+            const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
+            
+            $('#input${text_attr(nm)}').selectize({
+              ${attrs?.isFilter || field.required ? `plugins: ["remove_button"],` : ""}
+              ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
+              ${attrs.allow_clear ? `allowClear: true,` : ""}
+              ${attrs?.ajax ? generateAjaxLoadConfig(field, attrs) : ""}
               onChange: function(value) { 
                 // Removido o autofill conforme solicitado
               }
-              
-              });         
-              document.getElementById('input${text_attr(
-                nm
-              )}').addEventListener('RefreshSelectOptions', (e) => { }, false);
-            `
+            });
+            
+            document.getElementById('input${text_attr(nm)}').addEventListener('RefreshSelectOptions', (e) => { }, false);
+          `
         )
       ) +
       (attrs?.maxHeight
         ? style(
-            `.selectize-dropdown.selectize-nm-${text_attr(
-              nm
-            )} .selectize-dropdown-content {
-            max-height: ${attrs?.maxHeight}px;            
-          } `
+            `.selectize-dropdown.selectize-nm-${text_attr(nm)} .selectize-dropdown-content {
+              max-height: ${attrs?.maxHeight}px;
+            }`
           )
-        : ""
-      )
+        : "")
     );
   },
 };
 
 const search_or_create_selectize = {
-  /** @type {string} */
   type: "Key",
-  /** @type {boolean} */
   isEdit: true,
   blockDisplay: true,
   description:
     "Select from dropdown, or give user the option of creating a new relation in a popup",
 
-  /**
-   * @param {object} field
-   * @returns {Promise<object[]>}
-   */
   configFields: async (field) => {
     const reftable = Table.findOne({ name: field.reftable_name });
     if (!reftable) return [];
@@ -339,18 +330,13 @@ const search_or_create_selectize = {
     ];
   },
 
-  /**
-   * @param {*} nm
-   * @param {*} v
-   * @param {*} attrs
-   * @param {*} cls
-   * @param {*} reqd
-   * @param {*} field
-   * @returns {object}
-   */
   run: (nm0, v, attrs, cls, reqd, field) => {
     const rndid = Math.floor(Math.random() * 16777215).toString(16);
     const nm = nm0 + rndid;
+    const columnsParam = attrs.columns_to_fetch 
+      ? `?colunas=${encodeURIComponent(attrs.columns_to_fetch)}` 
+      : '';
+
     return (
       tags.select(
         {
@@ -386,134 +372,48 @@ const search_or_create_selectize = {
       script(
         domReady(
           `
-const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
-const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
+            ${generateDarkModeStyles()}
+            
+            const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
+            const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
 
-const addFiveToColor = (hexColor) => {
-  const decimalColor = parseInt(hexColor.replace("#", ""), 16);
-  let red = (decimalColor >> 16) & 0xff;
-  let green = (decimalColor >> 8) & 0xff;
-  let blue = decimalColor & 0xff;
-  red = Math.min(255, red + 5);
-  green = Math.min(255, green + 5);
-  blue = Math.min(255, blue + 5);
-  return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
-}
+            $('#input${nm}').selectize({
+              plugins: ["remove_button"],
+              create: false,
+              ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
+              ${attrs.allow_clear ? `allowClear: true,` : ""}
+              ${generateAjaxLoadConfig(field, attrs)}
+              onChange: function(value) {
+                // Removido o autofill conforme solicitado
+              }
+            });
 
-const getDarkStyle = (bg) => {
-  return \`
-    .selectize-input, .selectize-control, .selectize-dropdown {
-      background-color: \${bg} !important;
-      color: #fff !important;
-    }
-    .selectize-dropdown-content .option.active {
-      background-color: \${addFiveToColor(bg)} !important;
-    }
-  \`;
-}
+            document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
-const darkBg = window._sc_lightmode === "dark" ? 
-  (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || "${bsBgColor()}") : null;
-
-if (darkBg) {
-  const style = document.createElement('style');
-  style.textContent = getDarkStyle(darkBg);
-  document.head.appendChild(style);
-}
-
-$('#input${nm}').selectize({
-  plugins: ["remove_button"],
-  create: false,
-  ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
-  ${attrs.allow_clear ? `allowClear: true,` : ""}
-  minimumInputLength: 2,
-  minimumResultsForSearch: 10,
-  language: "${default_locale}",
-  load: async function(query, callback) {
-    if (!query.length || query.length < 2) return callback();
-    const url = '/api/${field.reftable_name}?${
-      field.attributes.summary_field
-    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-    if (isWeb) {
-      $.ajax({
-        url: url,
-        type: 'GET',
-        dataType: 'json',
-        error: function(err) { console.log(err); callback(); },
-        success: function(data) {
-          if (!data || !data.success) return callback([]);
-          const formatLabel = (item) => {
-            let format = "${attrs.ajax_response_format || ''}";
-            if (!format) return item.${field.attributes.summary_field};
-            // Substitui {coluna} por item[coluna]
-            return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-          };
-          const options = data.success.map(item => ({
-            text: formatLabel(item),
-            value: item.id,
-            ...item
-          }));
-          callback(options);
-        }
-      });
-    } else if (hasCapacitor) {
-      const response = await parent.window.saltcorn.mobileApp.api.apiCall({
-        method: 'GET',
-        path: url,
-        responseType: "json"
-      });
-      const data = response.data;
-      if (!data || !data.success) return callback([]);
-      const formatLabel = (item) => {
-        let format = "${attrs.ajax_response_format || ''}";
-        if (!format) return item.${field.attributes.summary_field};
-        return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-      };
-      const options = data.success.map(item => ({
-        text: formatLabel(item),
-        value: item.id,
-        ...item
-      }));
-      callback(options);
-    } else {
-      console.error("No API available");
-      callback();
-    }
-  },
-  onChange: function(value) {
-    // Removido o autofill conforme solicitado
-  }
-});
-
-document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
-
-window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-  $.ajax(url, {
-    success: function (res, textStatus, request) {
-      const dataOptions = [];
-      const formatLabel = (item) => {
-        let format = "${attrs.ajax_response_format || ''}";
-        if (!format) return item.${field.attributes.summary_field || 'id'};
-        return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-      };
-      res.success.forEach(x => {
-        dataOptions.push({
-          text: formatLabel(x),
-          value: x.id,
-          ...x
-        });
-      });
-      if (!${field.required}) dataOptions.push({text: "", value: ""});
-      dataOptions.sort((a, b) => (a.text?.toLowerCase() || a.text) > (b.text?.toLowerCase() || b.text) ? 1 : -1);
-      const e = $('#input${nm}')[0].selectize;
-      e.clearOptions(true);
-      e.addOption(dataOptions);
-      e.setValue(res.success[res.success.length-1].id);
-    }
-  });
-}
-        `)
+            window.soc_process_${nm} = (elem) => () => {
+              const url = '/api/${field.reftable_name}${columnsParam}';
+              ${generateFormatLabelFunction(attrs, field)}
+              
+              $.ajax(url, {
+                success: function (res, textStatus, request) {
+                  const dataOptions = res.success.map(x => ({
+                    text: formatLabel(x),
+                    value: x.id,
+                    ...x
+                  }));
+                  
+                  if (!${field.required}) dataOptions.push({text: "", value: ""});
+                  dataOptions.sort((a, b) => (a.text?.toLowerCase() || a.text) > (b.text?.toLowerCase() || b.text) ? 1 : -1);
+                  
+                  const e = $('#input${nm}')[0].selectize;
+                  e.clearOptions(true);
+                  e.addOption(dataOptions);
+                  e.setValue(res.success[res.success.length-1].id);
+                }
+              });
+            }
+          `
+        )
       )
     );
   },
@@ -531,7 +431,6 @@ module.exports = {
   sc_plugin_api_version: 1,
   fieldviews,
   plugin_name: "selectize",
-  //viewtemplates: [require("./edit-nton")],
   headers: [
     {
       script: `${base_headers}/selectize.min.js`,

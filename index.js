@@ -535,7 +535,7 @@ module.exports = {
   fieldviews,
   plugin_name: "selectize",
   //viewtemplates: [require("./edit-nton")],
-  headers: ({ everything }) =>  [
+  headers: [
     {
       script: `${base_headers}/selectize.min.js`,
     },
@@ -546,7 +546,7 @@ module.exports = {
           : ""
       }/selectize_everything.js`,
     },
-    ...(everything && default_locale && default_locale !== "en"
+    ...(default_locale && default_locale !== "en"
       ? [
           {
             script: `${base_headers}/i18n/${default_locale}.js`,

@@ -45,195 +45,158 @@ This README details backend modifications to `packages/server/routes/api.js` for
 2. **Add Multisearch Logic**: In the GET /:tableName/ handler, change for:
 ```javascript
 router.get(
-"/:tableName/",
-//passport.authenticate("api-bearer", { session: false }),
-error_catcher(async (req, res, next) => {
+  "/:tableName/",
+  //passport.authenticate("api-bearer", { session: false }),
+  error_catcher(async (req, res, next) => {
     let { tableName } = req.params;
     const {
-    fields: queryFields,
-    columns,  // Alias for backward compatibility if needed
-    versioncount,
-    limit,
-    offset,
-    sortBy,
-    sortDesc,
-    approximate,
-    dereference,
-    tabulator_pagination_format,
-    ...req_query0
+      fields: queryFields,
+      columns, // Alias for backward compatibility if needed
+      versioncount,
+      limit,
+      offset,
+      sortBy,
+      sortDesc,
+      approximate,
+      dereference,
+      tabulator_pagination_format,
+      ...req_query0
     } = req.query;
 
     let req_query = req_query0;
     let tabulator_size, tabulator_page, tabulator_sort, tabulator_dir;
     if (tabulator_pagination_format) {
-    const { page, size, sort, ...rq } = req_query0;
-    req_query = rq;
-    tabulator_page = page;
-    tabulator_size = size;
-    tabulator_sort = sort?.[0]?.field;
-    tabulator_dir = sort?.[0]?.dir;
+      const { page, size, sort, ...rq } = req_query0;
+      req_query = rq;
+      tabulator_page = page;
+      tabulator_size = size;
+      tabulator_sort = sort?.[0]?.field;
+      tabulator_dir = sort?.[0]?.dir;
     }
     if (typeof limit !== "undefined")
-    if (isNaN(limit) || !validateNumberMin(limit, 1)) {
+      if (isNaN(limit) || !validateNumberMin(limit, 1)) {
         getState().log(3, `API get ${tableName} Invalid limit parameter`);
         return res.status(400).send({ error: "Invalid limit parameter" });
-    }
+      }
     if (typeof offset !== "undefined")
-    if (isNaN(offset) || !validateNumberMin(offset, 0)) {
+      if (isNaN(offset) || !validateNumberMin(offset, 0)) {
         getState().log(3, `API get ${tableName} Invalid offset parameter`);
         return res.status(400).send({ error: "Invalid offset parameter" });
-    }
+      }
     const strictIntId = strictParseInt(tableName);
     let table = Table.findOne(
-    strictIntId ? { id: strictParseInt(tableName) } : { name: tableName }
+      strictIntId ? { id: strictParseInt(tableName) } : { name: tableName }
     );
     if (strictIntId && !table) table = Table.findOne({ name: tableName });
     if (!table) {
-    getState().log(3, `API get ${tableName} table not found`);
-    getState().log(
+      getState().log(3, `API get ${tableName} table not found`);
+      getState().log(
         6,
         `API get failure additonal info: URL=${req.originalUrl}${
-        getState().getConfig("log_ip_address", false) ? ` IP=${req.ip}` : ""
+          getState().getConfig("log_ip_address", false) ? ` IP=${req.ip}` : ""
         }`
-    );
-    res.status(404).json({ error: req.__("Not found") });
-    return;
+      );
+      res.status(404).json({ error: req.__("Not found") });
+      return;
     }
     const orderByField =
-    (sortBy || tabulator_sort) && table.getField(sortBy || tabulator_sort);
+      (sortBy || tabulator_sort) && table.getField(sortBy || tabulator_sort);
 
     const use_limit = tabulator_pagination_format
-    ? +tabulator_size
-    : limit && +limit;
+      ? +tabulator_size
+      : limit && +limit;
     const use_offset = tabulator_pagination_format
-    ? +tabulator_size * (+tabulator_page - 1)
-    : offset && +offset;
+      ? +tabulator_size * (+tabulator_page - 1)
+      : offset && +offset;
 
     await passport.authenticate(
-    ["api-bearer", "jwt"],
-    { session: false },
-    async function (err, user, info) {
+      ["api-bearer", "jwt"],
+      { session: false },
+      async function (err, user, info) {
         if (accessAllowedRead(req, user, table, true)) {
-        let rows;
-        if (versioncount === "on") {
-            const joinOpts = {
+          // Defina tbl_fields ANTES do if/else para estar disponível em ambos
+          const tbl_fields = table.getFields();
+
+          // Limitação de colunas no nível DB
+          let selectFields = tbl_fields.map(f => f.name);
+          if (req.query.colunas && typeof req.query.colunas === 'string') {
+            let requested = req.query.colunas.split(',').map(c => c.trim()).filter(Boolean);
+            if (requested.length > 0 && requested.length <= 20) {
+              const validFields = tbl_fields.map(f => f.name);
+              requested = requested.filter(c => validFields.includes(c));
+              if (requested.length > 0) {
+                selectFields = requested;
+                getState().log(5, `API GET ${table.name} limited to columns: ${selectFields.join(', ')}`);
+              }
+            }
+          }
+
+          let rows;
+          const baseOpts = {
             forUser: req.user || user || { role_id: 100 },
             forPublic: !(req.user || user),
             limit: use_limit,
             offset: use_offset,
-            orderDesc:
-                (sortDesc && sortDesc !== "false") || tabulator_dir == "desc",
+            orderDesc: (sortDesc && sortDesc !== "false") || tabulator_dir == "desc",
             orderBy: orderByField?.name || "id",
-            aggregations: {
+            fields: selectFields  // Limitação DB-level
+          };
+
+          if (versioncount === "on") {
+            rows = await table.getJoinedRows({
+              ...baseOpts,
+              aggregations: {
                 _versions: {
-                table: table.name + "__history",
-                ref: table.pk_name,
-                field: table.pk_name,
-                aggregate: "count",
-                },
-            },
-            };
-            rows = await table.getJoinedRows(joinOpts);
-        } else {
-            const tbl_fields = table.getFields();
+                  table: table.name + "__history",
+                  ref: table.pk_name,
+                  field: table.pk_name,
+                  aggregate: "count"
+                }
+              }
+            });
+          } else {
             readState(req_query, tbl_fields, req);
             const qstate = stateFieldsToWhere({
-            fields: tbl_fields,
-            approximate: !!approximate,
-            state: req_query,
-            table,
-            prefix: "a.",
+              fields: tbl_fields,
+              approximate: !!approximate,
+              state: req_query,
+              table,
+              prefix: "a."
             });
             const joinFields = {};
             const derefs = Array.isArray(dereference)
-            ? dereference
-            : !dereference
-                ? []
-                : [dereference];
+              ? dereference
+              : !dereference ? [] : [dereference];
             derefs.forEach((f) => {
-            const field = table.getField(f);
-            if (field?.attributes?.summary_field)
-                joinFields[`${f}_${field?.attributes?.summary_field}`] = {
-                ref: f,
-                target: field?.attributes?.summary_field,
+              const field = table.getField(f);
+              if (field?.attributes?.summary_field)
+                joinFields[`${f}_${field.attributes.summary_field}`] = {
+                  ref: f,
+                  target: field.attributes.summary_field
                 };
             });
-            try {
             rows = await table.getJoinedRows({
-                where: qstate,
-                joinFields,
-                limit: use_limit,
-                offset: use_offset,
-                orderDesc:
-                (sortDesc && sortDesc !== "false") || tabulator_dir == "desc",
-                orderBy: orderByField?.name || undefined,
-                forPublic: !(req.user || user),
-                forUser: req.user || user,
+              ...baseOpts,
+              where: qstate,
+              joinFields
             });
-            } catch (e) {
-            console.error(e);
-            res.json({ error: "API error" });
-            return;
-            }
-        }
+          }
 
-        // Process colunas for DB-level limiting
-        let selectFields = tbl_fields.map(f => f.name);
-        if (req.query.colunas && typeof req.query.colunas === 'string') {
-        let requested = req.query.colunas.split(',').map(c => c.trim()).filter(Boolean);
-        if (requested.length > 0 && requested.length <= 10) {
-            const validFields = tbl_fields.map(f => f.name);
-            requested = requested.filter(c => validFields.includes(c));
-            if (requested.length > 0) {
-            selectFields = requested;
-            getState().log(5, `API GET ${table.name} limited to columns: ${selectFields.join(', ')}`);
-            }
-        }
-        }
-
-        const opts = {
-        where: qstate,
-        joinFields,
-        limit: use_limit,
-        offset: use_offset,
-        orderDesc: (sortDesc && sortDesc !== "false") || tabulator_dir == "desc",
-        orderBy: orderByField?.name || undefined,
-        forPublic: !(req.user || user),
-        forUser: req.user || user,
-        fields: selectFields  // DB-level limiting here
-        };
-
-        if (versioncount === "on") {
-        opts.aggregations = {
-            _versions: {
-            table: table.name + "__history",
-            ref: table.pk_name,
-            field: table.pk_name,
-            aggregate: "count",
-            },
-        };
-        rows = await table.getJoinedRows(opts);
-        } else {
-        rows = await table.getJoinedRows(opts);  // Use opts with fields
-        }
-
-        if (tabulator_pagination_format) {
+          if (tabulator_pagination_format) {
             const count = await table.countRows();
             if (count === null)
-            res.json({
-                data: rows.map(limitFields(queryFields || columns)),
-            });
+              res.json({ data: rows.map(limitFields(queryFields || columns)) });
             else
-            res.json({
+              res.json({
                 last_page: Math.ceil(count / +tabulator_size),
-                data: rows.map(limitFields(queryFields || columns)),
-            });
-        } else res.json({ success: rows.map(limitFields(queryFields || columns)) });
+                data: rows.map(limitFields(queryFields || columns))
+              });
+          } else res.json({ success: rows.map(limitFields(queryFields || columns)) });
         } else {
-        getState().log(3, `API get ${table.name} not authorized`);
-        res.status(401).json({ error: req.__("Not authorized") });
+          getState().log(3, `API get ${table.name} not authorized`);
+          res.status(401).json({ error: req.__("Not authorized") });
         }
-    }
+      }
     )(req, res, next);
-})
+  })
 );

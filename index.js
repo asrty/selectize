@@ -247,17 +247,16 @@ const selectize = {
     }
 
     const noChange = attrs.isFilter && attrs.dynamic_where;
+    const fieldId = `input${text_attr(nm)}`;
 
     return (
       tags.select(
         {
-          class: `form-control scfilter ${cls} ${
-            field.class || ""
-          } selectize-nm-${text_attr(nm)}`,
+          class: `form-control form-select scfilter ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm),
           onChange: !noChange && attrs.onChange,
-          id: `input${text_attr(nm)}`,
+          id: fieldId,
           ...(attrs?.dynamic_where
             ? {
                 "data-selected": v,
@@ -277,24 +276,32 @@ const selectize = {
             const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
             const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
             
-            $('#input${text_attr(nm)}').selectize({
+            $('#${fieldId}').selectize({
               ${attrs?.isFilter || field.required ? `plugins: ["remove_button"],` : ""}
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
-              ${attrs.allow_clear ? `allowClear: true,` : ""}
+              ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
+              maxOptions: 1000,
               ${attrs?.ajax ? generateAjaxLoadConfig(field, attrs) : ""}
+              onInitialize: function() {
+                const self = this;
+                // Garante que o dropdown tenha altura adequada
+                this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
+                this.$dropdown.css('overflow-y', 'auto');
+              },
               onChange: function(value) { 
                 // Removido o autofill conforme solicitado
               }
             });
             
-            document.getElementById('input${text_attr(nm)}').addEventListener('RefreshSelectOptions', (e) => { }, false);
+            document.getElementById('${fieldId}').addEventListener('RefreshSelectOptions', (e) => { }, false);
           `
         )
       ) +
       (attrs?.maxHeight
         ? style(
-            `.selectize-dropdown.selectize-nm-${text_attr(nm)} .selectize-dropdown-content {
-              max-height: ${attrs?.maxHeight}px;
+            `#${fieldId}-selectized + .selectize-control .selectize-dropdown-content {
+              max-height: ${attrs?.maxHeight}px !important;
+              overflow-y: auto !important;
             }`
           )
         : "")
@@ -333,6 +340,7 @@ const search_or_create_selectize = {
   run: (nm0, v, attrs, cls, reqd, field) => {
     const rndid = Math.floor(Math.random() * 16777215).toString(16);
     const nm = nm0 + rndid;
+    const fieldId = `input${nm}`;
     const columnsParam = attrs.columns_to_fetch 
       ? `?colunas=${encodeURIComponent(attrs.columns_to_fetch)}` 
       : '';
@@ -343,7 +351,7 @@ const search_or_create_selectize = {
           class: `form-control form-select ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm0),
-          id: `input${nm}`,
+          id: fieldId,
           disabled: attrs.disabled,
           readonly: attrs.readonly,
           onChange: attrs.onChange,
@@ -377,18 +385,24 @@ const search_or_create_selectize = {
             const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
             const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
 
-            $('#input${nm}').selectize({
+            $('#${fieldId}').selectize({
               plugins: ["remove_button"],
               create: false,
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
-              ${attrs.allow_clear ? `allowClear: true,` : ""}
+              ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
+              maxOptions: 1000,
               ${generateAjaxLoadConfig(field, attrs)}
+              onInitialize: function() {
+                const self = this;
+                this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
+                this.$dropdown.css('overflow-y', 'auto');
+              },
               onChange: function(value) {
                 // Removido o autofill conforme solicitado
               }
             });
 
-            document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
+            document.getElementById('${fieldId}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
             window.soc_process_${nm} = (elem) => () => {
               const url = '/api/${field.reftable_name}${columnsParam}';
@@ -405,10 +419,10 @@ const search_or_create_selectize = {
                   if (!${field.required}) dataOptions.push({text: "", value: ""});
                   dataOptions.sort((a, b) => (a.text?.toLowerCase() || a.text) > (b.text?.toLowerCase() || b.text) ? 1 : -1);
                   
-                  const e = $('#input${nm}')[0].selectize;
-                  e.clearOptions(true);
-                  e.addOption(dataOptions);
-                  e.setValue(res.success[res.success.length-1].id);
+                  const selectizeInstance = $('#${fieldId}')[0].selectize;
+                  selectizeInstance.clearOptions(true);
+                  selectizeInstance.addOption(dataOptions);
+                  selectizeInstance.setValue(res.success[res.success.length-1].id);
                 }
               });
             }

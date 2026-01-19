@@ -30,15 +30,15 @@ const bsBgColor = () => {
 };
 
 const selectize = {
-    /** @type {string} */
+  /** @type {string} */
   type: "Key",
-    /** @type {boolean} */
+  /** @type {boolean} */
   isEdit: true,
   blockDisplay: true,
 
-   /**
+  /**
    * @type {object[]}
-   */  
+   */
   fill_options_restrict(field, v) {
     if (field?.attributes?.ajax) {
       const pk = Table.findOne(field.reftable_name)?.pk_name;
@@ -88,7 +88,8 @@ const selectize = {
     {
       name: "force_required",
       label: "Force required",
-      sublabel: "User must select a value, even if the table field is not required",
+      sublabel:
+        "User must select a value, even if the table field is not required",
       type: "Bool",
     },
     {
@@ -116,7 +117,6 @@ const selectize = {
    * @param {*} field
    * @returns {object}
    */
-
   run: (nm, v, attrs, cls, reqd, field) => {
     if (attrs.disabled)
       return (
@@ -127,131 +127,202 @@ const selectize = {
           id: `input${text_attr(nm)}`,
           readonly: true,
           placeholder: v || field.label,
-        }) + span({ class: "ml-m1" }, v || "")
+        }) + span({ class: "ml-m1" }, "v")
       );
-
+    //console.log("select2 attrs", attrs);
     let opts = [];
     if (!attrs.ajax)
-      opts = select_options(v, field, attrs.force_required, attrs.neutral_label);
+      opts = select_options(
+        v,
+        field,
+        (attrs || {}).force_required,
+        (attrs || {}).neutral_label
+      );
     else
       opts = select_options(
         v,
         {
           ...field,
-          options: (field.options || []).filter(o => o.value == v || o.value === ""),
+          options: (field.options || []).filter(
+            (o) => o.value == v || o.value === ""
+          ),
         },
-        attrs.force_required,
-        attrs.neutral_label
+        (attrs || {}).force_required,
+        (attrs || {}).neutral_label
       );
-
     if (attrs.isFilter && field.required)
-      opts = `<option value=""></option>` + opts;
-
+      opts = `<option value="">${attrs?.neutral_label || ""}</option>` + opts;
     const noChange = attrs.isFilter && attrs.dynamic_where;
-
-    // Script único para dark mode (apenas uma vez por página)
-    const darkModeScript = `
-      if (!document.getElementById('selectize-dark-style')) {
-        const addFiveToColor = (hexColor) => {
-          const decimalColor = parseInt(hexColor.replace("#", ""), 16);
-          let red = (decimalColor >> 16) & 0xff;
-          let green = (decimalColor >> 8) & 0xff;
-          let blue = decimalColor & 0xff;
-          red = Math.min(255, red + 5);
-          green = Math.min(255, green + 5);
-          blue = Math.min(255, blue + 5);
-          return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
-        };
-        const getDarkStyle = (bg) => \`
-          .selectize-input, .selectize-control, .selectize-dropdown {
-            background-color: \${bg} !important;
-            color: #fff !important;
-          }
-          .selectize-dropdown-content .option.active {
-            background-color: \${addFiveToColor(bg)} !important;
-            color: #fff !important;
-          }
-        \`;
-        const darkBg = window._sc_lightmode === "dark" ?
-          (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || "${bsBgColor()}") : null;
-        if (darkBg) {
-          const style = document.createElement('style');
-          style.id = 'selectize-dark-style';
-          style.textContent = getDarkStyle(darkBg);
-          document.head.appendChild(style);
-        }
-      }
-    `;
-
-    // Config AJAX com custom format e columns
-    const ajaxConfig = attrs.ajax ? `
-      load: async function(query, callback) {
-        if (!query.length || query.length < 2) return callback();
-        const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + 
-          ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-        $.ajax({
-          url: url,
-          type: 'GET',
-          dataType: 'json',
-          error: () => callback(),
-          success: (data) => {
-            if (!data.success) return callback([]);
-            const format = "${attrs.ajax_response_format || ''}";
-            const getText = (item) => format ? format.replace(/{(\\w+)}/g, (_, col) => item[col] || '') : item.${field.attributes.summary_field};
-            const options = data.success.map(item => ({
-              value: item.id,
-              text: item.${field.attributes.summary_field}, // Text padrão para search/highlight
-              display: getText(item), // Custom display
-              ...item
-            }));
-            callback(options);
-          }
-        });
-      },
-      render: {
-        item: function(item, escape) {
-          return '<div>' + (item.display || escape(item.text)) + '</div>';
-        },
-        option: function(item, escape) {
-          return '<div>' + (item.display || escape(item.text)) + '</div>';
-        }
-      },
-    ` : "";
-
     return (
       tags.select(
         {
-          class: `form-control scfilter ${cls} ${field.class || ""} selectize-nm-${text_attr(nm)}`,
+          class: `form-control scfilter ${cls} ${
+            field.class || ""
+          } selectize-nm-${text_attr(nm)}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm),
           onChange: !noChange && attrs.onChange,
           id: `input${text_attr(nm)}`,
-          ...(attrs?.dynamic_where ? {
-            "data-selected": v,
-            "data-fetch-options": encodeURIComponent(JSON.stringify(attrs?.dynamic_where)),
-          } : {}),
+          ...(attrs?.dynamic_where
+            ? {
+                "data-selected": v,
+                "data-fetch-options": encodeURIComponent(
+                  JSON.stringify(attrs?.dynamic_where)
+                ),
+              }
+            : {}),
         },
         opts
       ) +
-      script(domReady(darkModeScript)) + // Dark mode uma vez
       script(
-        domReady(`
-          const $select = $('#input${text_attr(nm)}');
-          if ($select[0].selectize) $select[0].selectize.destroy(); // Evita duplicidade
-          $select.selectize({
-            plugins: ${attrs?.isFilter || field.required ? '["remove_button"]' : '[]'},
-            placeholder: "${attrs.placeholder || ''}",
-            allowClear: ${!!attrs.allow_clear},
-            ${ajaxConfig}
-            onChange: function(value) {}
-          });
-          document.getElementById('input${text_attr(nm)}').addEventListener('RefreshSelectOptions', () => {});
-        `)
+        domReady(
+          `
+const addFiveToColor = (hexColor) => {
+  const decimalColor = parseInt(hexColor.replace("#", ""), 16);
+  let red = (decimalColor >> 16) & 0xff;
+  let green = (decimalColor >> 8) & 0xff;
+  let blue = decimalColor & 0xff;
+  red = Math.min(255, red + 5);
+  green = Math.min(255, green + 5);
+  blue = Math.min(255, blue + 5);
+  return \`#\${((red << 16) | (green << 8) | blue)
+    .toString(16)
+    .padStart(6, "0")}\`;
+}
+
+const getDarkStyle = (bg) => {
+  return \`
+  .selectize-input {
+    background-color: \${bg} !important;
+    color: #fff !important;
+  }
+
+  .selectize-control {
+    background-color: \${bg} !important;
+    color: #fff !important;
+  }
+
+  .selectize-dropdown  {
+    background-color: \${bg} !important;
+    color: #fff !important;
+  }
+  .selectize-dropdown-content .option.active {
+    background-color: \${addFiveToColor(bg)} !important;
+    color: #fff !important;
+  }
+\`;
+};
+
+// try tabler, then bootstrap, then default
+const darkBg = window._sc_lightmode==="dark" ? 
+  (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || 
+    "${bsBgColor()}") : null; 
+if (darkBg) {
+  const style = document.createElement('style');
+  style.textContent = getDarkStyle(darkBg);
+  document.head.appendChild(style);
+}
+const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
+const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
+$('#input${text_attr(nm)}').selectize({
+            ${
+              attrs?.isFilter || field.required
+                ? `plugins: ["remove_button"],`
+                : ""
+            }
+            ${
+              attrs?.ajax
+                ? `load: async function(query, callback) {
+if (!query.length || query.length<2) return callback();
+  if (isWeb) {
+   $.ajax({
+    url: '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + 
+          ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
+    type: 'GET',
+    dataType: 'json',
+    //data: { json: JSON.stringify(countries) },
+
+    error: function(err) { console.log(err); },
+
+  success: function(data) {
+    if(!data || !data.success) return [];
+    const options = data.success.map(item=>({text: ${
+      attrs.label_formula
+        ? `new Function('{'+Object.keys(item).join(",")+'}', "return " +${JSON.stringify(
+            attrs.label_formula
+          )})(item)`
+        : `item.${field.attributes.summary_field}`
+    }, value: item.id }))
+    callback(options)
+    }
+              })
+    }
+    else if (hasCapacitor) {
+      const response = await parent.window.saltcorn.mobileApp.api.apiCall({
+        method: 'GET',
+        path: '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + 
+          ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
+        responseType: "json",
+      });
+      const data = response.data;
+      if(!data || !data.success) callback([]);
+      else {
+        const options = data.success.map(item=>({text: ${
+          attrs.label_formula
+            ? `new Function('{'+Object.keys(item).join(",")+'}', "return " +${JSON.stringify(
+                attrs.label_formula
+              )})(item)`
+            : `item.${field.attributes.summary_field}`
+        }, value: item.id }));
+        callback(options)
+      }
+    }
+    else {
+      console.error("No API available")
+    }
+            }`
+                : ""
+            }
+          
+          });         
+          document.getElementById('input${text_attr(
+            nm
+          )}').addEventListener('RefreshSelectOptions', (e) => { }, false);
+        `
+        )
       ) +
-      (attrs?.maxHeight ? style(`.selectize-dropdown.selectize-nm-${text_attr(nm)} .selectize-dropdown-content { max-height: ${attrs.maxHeight}px; }`) : "")
+      (attrs?.maxHeight
+        ? style(
+            `.selectize-dropdown.selectize-nm-${text_attr(
+              nm
+            )} .selectize-dropdown-content {
+            max-height: ${attrs?.maxHeight}px;            
+          } `
+          )
+        : "")
     );
   },
 };
+const configuration_workflow = () =>
+  new Workflow({
+    steps: [
+      {
+        name: "everything",
+        form: async (context) => {
+          return new Form({
+            fields: [
+              {
+                name: "everything",
+                label: "Selectize everything",
+                sublabel: "Apply selectize everywhere possible",
+                type: "Bool",
+              },
+            ],
+          });
+        },
+      },
+    ],
+  });
 
 const search_or_create_selectize = {
   /** @type {string} */
@@ -271,7 +342,6 @@ const search_or_create_selectize = {
     if (!reftable) return [];
     const views = await View.find({ table_id: reftable.id }, { cached: true });
     return [
-      ...selectize.configFields(),
       {
         name: "viewname",
         label: "View to create",
@@ -283,6 +353,18 @@ const search_or_create_selectize = {
         name: "label",
         label: "Label on link to create",
         type: "String",
+      },
+      {
+        name: "where",
+        label: "Where",
+        type: "String",
+      },
+      {
+        name: "label_formula",
+        label: "Option label formula",
+        type: "String",
+        class: "validate-expression",
+        sublabel: "Uses summary field if blank",
       },
     ];
   },
@@ -304,12 +386,14 @@ const search_or_create_selectize = {
         {
           class: `form-control form-select ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
+
           name: text_attr(nm0),
           id: `input${nm}`,
           disabled: attrs.disabled,
           readonly: attrs.readonly,
           onChange: attrs.onChange,
           autocomplete: "off",
+
           ...(attrs?.dynamic_where
             ? {
                 "data-selected": v,
@@ -319,9 +403,6 @@ const search_or_create_selectize = {
               }
             : {}),
         },
-        field.required && attrs.placeholder
-          ? tags.option({ value: "" }, "")
-          : null,
         select_options(v, field)
       ) +
       a(
@@ -333,167 +414,70 @@ const search_or_create_selectize = {
       ) +
       script(
         domReady(
-          `
-const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
-const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
+          `$('#input${nm}').selectize(${
+            attrs?.isFilter || field.required
+              ? `{plugins: ["remove_button"],}`
+              : ""
+          });         
+        document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
 
-const addFiveToColor = (hexColor) => {
-  const decimalColor = parseInt(hexColor.replace("#", ""), 16);
-  let red = (decimalColor >> 16) & 0xff;
-  let green = (decimalColor >> 8) & 0xff;
-  let blue = decimalColor & 0xff;
-  red = Math.min(255, red + 5);
-  green = Math.min(255, green + 5);
-  blue = Math.min(255, blue + 5);
-  return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
-}
-
-const getDarkStyle = (bg) => {
-  return \`
-    .selectize-input, .selectize-control, .selectize-dropdown {
-      background-color: \${bg} !important;
-      color: #fff !important;
-    }
-    .selectize-dropdown-content .option.active {
-      background-color: \${addFiveToColor(bg)} !important;
-    }
-  \`;
-}
-
-const darkBg = window._sc_lightmode === "dark" ? 
-  (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || "${bsBgColor()}") : null;
-
-if (darkBg) {
-  const style = document.createElement('style');
-  style.textContent = getDarkStyle(darkBg);
-  document.head.appendChild(style);
-}
-
-$('#input${nm}').selectize({
-  plugins: ["remove_button"],
-  create: false,
-  ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
-  ${attrs.allow_clear ? `allowClear: true,` : ""}
-  minimumInputLength: 2,
-  minimumResultsForSearch: 10,
-  language: "${default_locale}",
-  load: async function(query, callback) {
-    if (!query.length || query.length < 2) return callback();
-    const url = '/api/${field.reftable_name}?${
-      field.attributes.summary_field
-    }=' + query + '&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-    if (isWeb) {
-      $.ajax({
-        url: url,
-        type: 'GET',
-        dataType: 'json',
-        error: function(err) { console.log(err); callback(); },
-        success: function(data) {
-          if (!data || !data.success) return callback([]);
-          const formatLabel = (item) => {
-            let format = "${attrs.ajax_response_format || ''}";
-            if (!format) return item.${field.attributes.summary_field};
-            // Substitui {coluna} por item[coluna]
-            return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-          };
-          const options = data.success.map(item => ({
-            text: formatLabel(item),
-            value: item.id,
-            ...item
-          }));
-          callback(options);
-        }
-      });
-    } else if (hasCapacitor) {
-      const response = await parent.window.saltcorn.mobileApp.api.apiCall({
-        method: 'GET',
-        path: url,
-        responseType: "json"
-      });
-      const data = response.data;
-      if (!data || !data.success) return callback([]);
-      const formatLabel = (item) => {
-        let format = "${attrs.ajax_response_format || ''}";
-        if (!format) return item.${field.attributes.summary_field};
-        return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-      };
-      const options = data.success.map(item => ({
-        text: formatLabel(item),
-        value: item.id,
-        ...item
-      }));
-      callback(options);
-    } else {
-      console.error("No API available");
-      callback();
-    }
-  },
-  onChange: function(value) {
-    // Removido o autofill conforme solicitado
-  }
-});
-
-document.getElementById('input${nm}').addEventListener('RefreshSelectOptions', (e) => { }, false);
-
-window.soc_process_${nm} = (elem) => ()=> {
-  const url = '/api/${field.reftable_name}' + ( "${attrs.columns_to_fetch ? '?colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
-  $.ajax(url, {
-    success: function (res, textStatus, request) {
-      const dataOptions = [];
-      const formatLabel = (item) => {
-        let format = "${attrs.ajax_response_format || ''}";
-        if (!format) return item.${field.attributes.summary_field || 'id'};
-        return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-      };
-      res.success.forEach(x => {
-        dataOptions.push({
-          text: formatLabel(x),
-          value: x.id,
-          ...x
-        });
-      });
-      if (!${field.required}) dataOptions.push({text: "", value: ""});
-      dataOptions.sort((a, b) => (a.text?.toLowerCase() || a.text) > (b.text?.toLowerCase() || b.text) ? 1 : -1);
-      const e = $('#input${nm}')[0].selectize;
-      e.clearOptions(true);
-      e.addOption(dataOptions);
-      e.setValue(res.success[res.success.length-1].id);
-    }
-  });
-}
-        `)
+        window.soc_process_${nm} = (elem) => ()=> {
+          $.ajax('/api/${field.reftable_name}', {
+            success: function (res, textStatus, request) {
+              const dataOptions=[]
+              var opts = res.success.forEach(x=>{
+                dataOptions.push({text: x.${attrs.summary_field}, value:x.id })
+              })
+              ${field.required ? "" : `dataOptions.push({text: "", value: ""})`}
+              dataOptions.sort((a, b) =>
+                (a.text?.toLowerCase?.() || a.text) >
+                (b.text?.toLowerCase?.() || b.text)
+                  ? 1
+                  : -1
+                );
+              const e = $('#input${nm}')
+              e.selectize()[0].selectize.clearOptions(true);
+              e.selectize()[0].selectize.addOption(dataOptions);
+              e.selectize()[0].selectize.setValue(res.success[res.success.length-1].id);
+            }
+          })
+        }`
+        )
       )
     );
   },
 };
 
-const fieldviews = { selectize, search_or_create_selectize };
-
-const base_headers = `/plugins/public/selectize@${
-  require("./package.json").version
-}`;
-
-const default_locale = getState().getConfig("default_locale", "en");
+const fieldviews = () => ({ search_or_create_selectize, selectize });
 
 module.exports = {
   sc_plugin_api_version: 1,
   fieldviews,
+  configuration_workflow,
   plugin_name: "selectize",
   //viewtemplates: [require("./edit-nton")],
-  headers: [
+  headers: ({ everything }) => [
     {
-      script: `${base_headers}/selectize.min.js`,
+      script: `/plugins/public/selectize@${
+        require("./package.json").version
+      }/selectize.min.js`,
     },
-    ...(default_locale && default_locale !== "en"
+    {
+      css: `/plugins/public/selectize@${
+        require("./package.json").version
+      }/selectize.bootstrap5.css`,
+    },
+    ...(everything
       ? [
           {
-            script: `${base_headers}/i18n/${default_locale}.js`,
+            script: `/plugins/public/selectize${
+              features?.version_plugin_serve_path
+                ? "@" + require("./package.json").version
+                : ""
+            }/selectize_everything.js`,
           },
         ]
       : []),
-    {
-      css: `${base_headers}/selectize.bootstrap5.css`,
-    },
   ],
   ready_for_mobile: true,
 };

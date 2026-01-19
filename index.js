@@ -127,181 +127,128 @@ const selectize = {
           id: `input${text_attr(nm)}`,
           readonly: true,
           placeholder: v || field.label,
-        }) + span({ class: "ml-m1" }, "v")
+        }) + span({ class: "ml-m1" }, v || "")
       );
-    //console.log("select2 attrs", attrs);
+
     let opts = [];
     if (!attrs.ajax)
-      opts = select_options(
-        v,
-        field,
-        (attrs || {}).force_required,
-        (attrs || {}).neutral_label
-      );
+      opts = select_options(v, field, attrs.force_required, attrs.neutral_label);
     else
       opts = select_options(
         v,
         {
           ...field,
-          options: (field.options || []).filter(
-            (o) => o.value == v || o.value === ""
-          ),
+          options: (field.options || []).filter(o => o.value == v || o.value === ""),
         },
-        (attrs || {}).force_required,
-        (attrs || {}).neutral_label
+        attrs.force_required,
+        attrs.neutral_label
       );
-    if (attrs.isFilter && field.required)
-      opts = `
 
-` + opts;
+    if (attrs.isFilter && field.required)
+      opts = `<option value=""></option>` + opts;
+
     const noChange = attrs.isFilter && attrs.dynamic_where;
+
+    // Script único para dark mode (apenas uma vez por página)
+    const darkModeScript = `
+      if (!document.getElementById('selectize-dark-style')) {
+        const addFiveToColor = (hexColor) => {
+          const decimalColor = parseInt(hexColor.replace("#", ""), 16);
+          let red = (decimalColor >> 16) & 0xff;
+          let green = (decimalColor >> 8) & 0xff;
+          let blue = decimalColor & 0xff;
+          red = Math.min(255, red + 5);
+          green = Math.min(255, green + 5);
+          blue = Math.min(255, blue + 5);
+          return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
+        };
+        const getDarkStyle = (bg) => \`
+          .selectize-input, .selectize-control, .selectize-dropdown {
+            background-color: \${bg} !important;
+            color: #fff !important;
+          }
+          .selectize-dropdown-content .option.active {
+            background-color: \${addFiveToColor(bg)} !important;
+            color: #fff !important;
+          }
+        \`;
+        const darkBg = window._sc_lightmode === "dark" ?
+          (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || "${bsBgColor()}") : null;
+        if (darkBg) {
+          const style = document.createElement('style');
+          style.id = 'selectize-dark-style';
+          style.textContent = getDarkStyle(darkBg);
+          document.head.appendChild(style);
+        }
+      }
+    `;
+
+    // Config AJAX com custom format e columns
+    const ajaxConfig = attrs.ajax ? `
+      load: async function(query, callback) {
+        if (!query.length || query.length < 2) return callback();
+        const url = '/api/${field.reftable_name}?${field.attributes.summary_field}=' + query + '&approximate=true' + 
+          ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" );
+        $.ajax({
+          url: url,
+          type: 'GET',
+          dataType: 'json',
+          error: () => callback(),
+          success: (data) => {
+            if (!data.success) return callback([]);
+            const format = "${attrs.ajax_response_format || ''}";
+            const getText = (item) => format ? format.replace(/{(\\w+)}/g, (_, col) => item[col] || '') : item.${field.attributes.summary_field};
+            const options = data.success.map(item => ({
+              value: item.id,
+              text: item.${field.attributes.summary_field}, // Text padrão para search/highlight
+              display: getText(item), // Custom display
+              ...item
+            }));
+            callback(options);
+          }
+        });
+      },
+      render: {
+        item: function(item, escape) {
+          return '<div>' + (item.display || escape(item.text)) + '</div>';
+        },
+        option: function(item, escape) {
+          return '<div>' + (item.display || escape(item.text)) + '</div>';
+        }
+      },
+    ` : "";
+
     return (
       tags.select(
         {
-          class: `form-control scfilter ${cls} ${
-            field.class || ""
-          } selectize-nm-${text_attr(nm)}`,
+          class: `form-control scfilter ${cls} ${field.class || ""} selectize-nm-${text_attr(nm)}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm),
           onChange: !noChange && attrs.onChange,
           id: `input${text_attr(nm)}`,
-          ...(attrs?.dynamic_where
-            ? {
-                "data-selected": v,
-                "data-fetch-options": encodeURIComponent(
-                  JSON.stringify(attrs?.dynamic_where)
-                ),
-              }
-            : {}),
+          ...(attrs?.dynamic_where ? {
+            "data-selected": v,
+            "data-fetch-options": encodeURIComponent(JSON.stringify(attrs?.dynamic_where)),
+          } : {}),
         },
         opts
       ) +
+      script(domReady(darkModeScript)) + // Dark mode uma vez
       script(
-        domReady(
-          `
-      const addFiveToColor = (hexColor) => {
-      const decimalColor = parseInt(hexColor.replace("#", ""), 16);
-      let red = (decimalColor >> 16) & 0xff;
-      let green = (decimalColor >> 8) & 0xff;
-      let blue = decimalColor & 0xff;
-      red = Math.min(255, red + 5);
-      green = Math.min(255, green + 5);
-      blue = Math.min(255, blue + 5);
-      return \`#\${((red << 16) | (green << 8) | blue).toString(16).padStart(6, "0")}\`;
-    }
-
-    const getDarkStyle = (bg) => {
-      return \`
-      .selectize-input {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-
-      .selectize-control {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-
-      .selectize-dropdown  {
-        background-color: \${bg} !important;
-        color: #fff !important;
-      }
-      .selectize-dropdown-content .option.active {
-        background-color: \${addFiveToColor(bg)} !important;
-        color: #fff !important;
-      }
-    \`;
-    };
-
-    // try tabler, then bootstrap, then default
-    const darkBg = window._sc_lightmode==="dark" ? 
-      (getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim() || 
-        "${bsBgColor()}") : null; 
-    if (darkBg) {
-      const style = document.createElement('style');
-      style.textContent = getDarkStyle(darkBg);
-      document.head.appendChild(style);
-    }
-    const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
-    const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
-    $('#input${text_attr(nm)}').selectize({
-                ${
-                  attrs?.isFilter || field.required
-                    ? `plugins: ["remove_button"],`
-                    : ""
-                }
-                ${
-                  attrs?.ajax
-                    ? `load: async function(query, callback) {
-    if (!query.length || query.length<2) return callback();
-      if (isWeb) {
-      $.ajax({
-        url: '/api/${field.reftable_name}?${
-                        field.attributes.summary_field
-                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
-        type: 'GET',
-        dataType: 'json',
-        error: function(err) { console.log(err); },
-
-      success: function(data) {
-        if(!data || !data.success) return [];
-        const formatLabel = (item) => {
-          let format = "${attrs.ajax_response_format || ''}";
-          if (!format) return item.${field.attributes.summary_field};
-          return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-        };
-        const options = data.success.map(item => ({ text: formatLabel(item), value: item.id, ...item }));
-        callback(options);
-        }
-                  })
-        }
-        else if (hasCapacitor) {
-          const response = await parent.window.saltcorn.mobileApp.api.apiCall({
-            method: 'GET',
-            path: '/api/${field.reftable_name}?${
-                        field.attributes.summary_field
-                      }='+query+'&approximate=true' + ( "${attrs.columns_to_fetch ? '&colunas=' + encodeURIComponent(attrs.columns_to_fetch) : ''}" ),
-            responseType: "json",
+        domReady(`
+          const $select = $('#input${text_attr(nm)}');
+          if ($select[0].selectize) $select[0].selectize.destroy(); // Evita duplicidade
+          $select.selectize({
+            plugins: ${attrs?.isFilter || field.required ? '["remove_button"]' : '[]'},
+            placeholder: "${attrs.placeholder || ''}",
+            allowClear: ${!!attrs.allow_clear},
+            ${ajaxConfig}
+            onChange: function(value) {}
           });
-          const data = response.data;
-          if(!data || !data.success) callback([]);
-          else {
-            const formatLabel = (item) => {
-              let format = "${attrs.ajax_response_format || ''}";
-              if (!format) return item.${field.attributes.summary_field};
-              return format.replace(/{(\\w+)}/g, (match, col) => item[col] || '');
-            };
-            const options = data.success.map(item => ({ text: formatLabel(item), value: item.id, ...item }));
-            callback(options);
-          }
-        }
-        else {
-          console.error("No API available")
-        }
-                },`
-                    : ""
-                }
-              onChange: function(value) { 
-                // Removido o autofill conforme solicitado
-              }
-              
-              });         
-              document.getElementById('input${text_attr(
-                nm
-              )}').addEventListener('RefreshSelectOptions', (e) => { }, false);
-            `
-        )
+          document.getElementById('input${text_attr(nm)}').addEventListener('RefreshSelectOptions', () => {});
+        `)
       ) +
-      (attrs?.maxHeight
-        ? style(
-            `.selectize-dropdown.selectize-nm-${text_attr(
-              nm
-            )} .selectize-dropdown-content {
-            max-height: ${attrs?.maxHeight}px;            
-          } `
-          )
-        : ""
-      )
+      (attrs?.maxHeight ? style(`.selectize-dropdown.selectize-nm-${text_attr(nm)} .selectize-dropdown-content { max-height: ${attrs.maxHeight}px; }`) : "")
     );
   },
 };

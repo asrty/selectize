@@ -276,15 +276,22 @@ const selectize = {
             const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
             const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
             
+            // Previne inicialização duplicada
+            if ($('#${fieldId}')[0].selectize) {
+              $('#${fieldId}')[0].selectize.destroy();
+            }
+            
             $('#${fieldId}').selectize({
               ${attrs?.isFilter || field.required ? `plugins: ["remove_button"],` : ""}
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
               ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
               maxOptions: 1000,
+              hideSelected: true,
               ${attrs?.ajax ? generateAjaxLoadConfig(field, attrs) : ""}
               onInitialize: function() {
-                const self = this;
-                // Garante que o dropdown tenha altura adequada
+                // Esconde o select original
+                this.$input.hide();
+                // Configura altura do dropdown
                 this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
                 this.$dropdown.css('overflow-y', 'auto');
               },
@@ -385,15 +392,23 @@ const search_or_create_selectize = {
             const isWeb = typeof parent.window.saltcorn?.markup === "undefined";
             const hasCapacitor = typeof parent.window.saltcorn?.mobileApp !== "undefined";
 
+            // Previne inicialização duplicada
+            if ($('#${fieldId}')[0].selectize) {
+              $('#${fieldId}')[0].selectize.destroy();
+            }
+
             $('#${fieldId}').selectize({
               plugins: ["remove_button"],
               create: false,
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
               ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
               maxOptions: 1000,
+              hideSelected: true,
               ${generateAjaxLoadConfig(field, attrs)}
               onInitialize: function() {
-                const self = this;
+                // Esconde o select original
+                this.$input.hide();
+                // Configura altura do dropdown
                 this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
                 this.$dropdown.css('overflow-y', 'auto');
               },

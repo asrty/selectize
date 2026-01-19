@@ -252,7 +252,7 @@ const selectize = {
     return (
       tags.select(
         {
-          class: `form-control form-select scfilter ${cls} ${field.class || ""}`,
+          class: `selectize-target ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm),
           onChange: !noChange && attrs.onChange,
@@ -286,11 +286,17 @@ const selectize = {
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
               ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
               maxOptions: 1000,
-              hideSelected: true,
+              hideSelected: false,
               ${attrs?.ajax ? generateAjaxLoadConfig(field, attrs) : ""}
               onInitialize: function() {
-                // Esconde o select original
-                this.$input.hide();
+                // Adiciona classes Bootstrap ao wrapper do Selectize
+                this.$wrapper.addClass('form-control form-select');
+                // Remove padding/border duplicado
+                this.$control.css({
+                  'border': 'none',
+                  'box-shadow': 'none',
+                  'padding': '0'
+                });
                 // Configura altura do dropdown
                 this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
                 this.$dropdown.css('overflow-y', 'auto');
@@ -355,7 +361,7 @@ const search_or_create_selectize = {
     return (
       tags.select(
         {
-          class: `form-control form-select ${cls} ${field.class || ""}`,
+          class: `selectize-target ${cls} ${field.class || ""}`,
           "data-fieldname": field.form_name,
           name: text_attr(nm0),
           id: fieldId,
@@ -403,11 +409,17 @@ const search_or_create_selectize = {
               ${attrs.placeholder ? `placeholder: "${attrs.placeholder}",` : ""}
               ${attrs.allow_clear ? `allowEmptyOption: true,` : ""}
               maxOptions: 1000,
-              hideSelected: true,
+              hideSelected: false,
               ${generateAjaxLoadConfig(field, attrs)}
               onInitialize: function() {
-                // Esconde o select original
-                this.$input.hide();
+                // Adiciona classes Bootstrap ao wrapper do Selectize
+                this.$wrapper.addClass('form-control form-select');
+                // Remove padding/border duplicado
+                this.$control.css({
+                  'border': 'none',
+                  'box-shadow': 'none',
+                  'padding': '0'
+                });
                 // Configura altura do dropdown
                 this.$dropdown.css('max-height', '${attrs?.maxHeight || 200}px');
                 this.$dropdown.css('overflow-y', 'auto');

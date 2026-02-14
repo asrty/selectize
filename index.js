@@ -56,14 +56,14 @@ const selectize = {
       label: "Where",
       type: "String",
     },
-    // Novo campo: AJAX response format (substitui o autofill)
-    // Formato: {coluna} para valores dinâmicos, strings literais para texto fixo
-    // Exemplo: {nome} - {cnpj}
+    // New field: AJAX response format (replaces autofill)
+    // Format: {column} for dynamic values, literal strings for fixed text
+    // Example: {name} - {cnpj}
     {
       name: "ajax_response_format",
       label: "AJAX response format",
       type: "String",
-      sublabel: "Formate o label visual do dropdown. Ex.: {nome} - {cnpj}"
+      sublabel: "Format the visual label of the dropdown. Ex.: {name} - {cnpj}"
     },
     {
       name: "ajax",
@@ -99,12 +99,12 @@ const selectize = {
       class: "validate-expression",
       sublabel: "Uses summary field if blank",
     },
-    // Novo campo: Columns to fetch
+    // New field: Columns to fetch
     {
       name: "columns_to_fetch",
       label: "Columns to fetch",
       type: "String",
-      sublabel: "Escreva os nomes das colunas que precisam ser retornadas. Ex.: id, name, email"
+      sublabel: "Write the names of the columns that need to be returned. Ex.: id, name, email"
     },
   ],
 

@@ -5,8 +5,6 @@ This update introduces enhanced functionality to the Selectize plugin in Saltcor
 
 - **✅AJAX Response Formatting:** Customize how options appear in the dropdown using placeholders like {nome} - {rg}.
 - **✅Column Limiting:** Specify fields to fetch (e.g., "id,name,rg") to reduce data transfer.
-- **❌Multiple search support:** Search across multiple fields (e.g., partial matches on name, RG, id) for more flexible queries.
-- **❌No bug fixes:** Unresolved syntax issues, dynamic "where" filtering, and bidirectional autofill (not implemented).
 
 These improvements make Selectize more efficient for large datasets and complex forms, with no breaking changes to existing setups.
 
